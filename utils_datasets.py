@@ -16,6 +16,25 @@ from torchvision import transforms
 import itertools
 from torch.utils.data.sampler import Sampler
 
+class TransformTwice:
+    def __init__(self, transform):
+        self.transform = transform
+
+    def __call__(self, inp):
+        out1 = self.transform(inp)
+        out2 = self.transform(inp)
+        return out1, out2
+
+
+class TransformThrice:
+    def __init__(self, transform):
+        self.transform = transform
+
+    def __call__(self, inp):
+        out1 = self.transform(inp)
+        out2 = self.transform(inp)
+        out3 = self.transform(inp)
+        return out1, out2, out3
 
 class CIFAR10_ALL(data.Dataset):
     base_folder = 'cifar-10-batches-py'
