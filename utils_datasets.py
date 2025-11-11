@@ -5,8 +5,7 @@ import os.path
 import numpy as np
 import sys
 import torch.utils.data as data
-from torchvision import datasets, transforms
-from torchvision.datasets import CIFAR100
+from torchvision import tv_datasets, transforms
 
 if sys.version_info[0] == 2:
     import cPickle as pickle
@@ -189,8 +188,8 @@ class CIFAR100_20_ALL(data.Dataset):
         test_path  = os.path.join(root, 'cifar-100-python', 'test')
 
         if download:
-            datasets.CIFAR100(root, train=True, download=True)
-            datasets.CIFAR100(root, train=False, download=True)
+            tv_datasets.CIFAR100(root, train=True, download=True)
+            tv_datasets.CIFAR100(root, train=False, download=True)
 
         with open(train_path, 'rb') as f:
             entry = pickle.load(f, encoding='latin1')
@@ -221,6 +220,66 @@ class CIFAR100_20_ALL(data.Dataset):
         if self.target_transform:
             target = self.target_transform(target)
 
+        return img, target, index
+
+    def __len__(self):
+        return len(self.data)
+
+class STL10_ALL(data.Dataset):
+    """STL-10 full unlabeled set (train + unlabeled)"""
+    def __init__(self, root, transform=None, target_transform=None, download=False):
+        self.transform = transform
+        self.target_transform = target_transform
+
+        # Load train + unlabeled
+        trainset = tv_datasets.STL10(root, split='train', download=download)
+        unlabeledset = tv_datasets.STL10(root, split='unlabeled', download=download)
+
+        self.data = np.concatenate([trainset.data, unlabeledset.data], axis=0)
+        self.targets = np.concatenate([trainset.labels, unlabeledset.labels], axis=0)
+
+        self.classes = ['airplane', 'bird', 'car', 'cat', 'deer',
+                        'dog', 'horse', 'monkey', 'ship', 'truck']
+        self.class_to_idx = {cls: i for i, cls in enumerate(self.classes)}
+
+    def __getitem__(self, index):
+        img = Image.fromarray(np.transpose(self.data[index], (1, 2, 0)))
+        target = int(self.targets[index])
+        if self.transform:
+            img = self.transform(img)
+        if self.target_transform:
+            target = self.target_transform(target)
+        return img, target, index
+
+    def __len__(self):
+        return len(self.data)
+
+
+# ================================
+# MNIST_ALL (70,000 samples, 10 classes)
+# ================================
+class MNIST_ALL(data.Dataset):
+    """MNIST full (train + test)"""
+    def __init__(self, root, transform=None, target_transform=None, download=False):
+        self.transform = transform
+        self.target_transform = target_transform
+
+        trainset = tv_datasets.MNIST(root, train=True, download=download)
+        testset = tv_datasets.MNIST(root, train=False, download=download)
+
+        self.data = np.concatenate([trainset.data.numpy(), testset.data.numpy()], axis=0)
+        self.targets = np.concatenate([np.array(trainset.targets), np.array(testset.targets)], axis=0)
+
+        self.classes = [str(i) for i in range(10)]
+        self.class_to_idx = {cls: i for i, cls in enumerate(self.classes)}
+
+    def __getitem__(self, index):
+        img = Image.fromarray(self.data[index], mode='L')  # Grayscale
+        target = int(self.targets[index])
+        if self.transform:
+            img = self.transform(img)
+        if self.target_transform:
+            target = self.target_transform(target)
         return img, target, index
 
     def __len__(self):
@@ -285,16 +344,14 @@ dict_transform.update({
     'cifar100_train': dict_transform['cifar_train'],
     'cifar100_test': dict_transform['cifar_test'],
     'mnist_train': transforms.Compose([
-        transforms.Resize(32),
-        transforms.Grayscale(num_output_channels=3),
+        transforms.RandomCrop(28, padding=4),
+        transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        transforms.Normalize((0.5,), (0.5,))
+        transforms.Normalize((0.1307,), (0.3081,)),
     ]),
     'mnist_test': transforms.Compose([
-        transforms.Resize(32),
-        transforms.Grayscale(num_output_channels=3),
         transforms.ToTensor(),
-        transforms.Normalize((0.5,), (0.5,))
+        transforms.Normalize((0.1307,), (0.3081,)),
     ]),
     'coil100_train': transforms.Compose([
         transforms.Resize(128),
