@@ -176,33 +176,45 @@ class CIFAR10_ALL(data.Dataset):
 
 class CIFAR100_20_ALL(data.Dataset):
     """
-    CIFAR100-20: Full train+test (60,000 samples) with 20 coarse labels.
-    Uses torchvision.datasets.CIFAR100 under the hood.
+    CIFAR-100-20 (20 super-classes) – train+test concatenated.
+    Works with **any** torchvision version.
     """
-    def __init__(self, root, train=True, transform=None, target_transform=None, download=False):
+    def __init__(self, root, train=True, transform=None,
+                 target_transform=None, download=False):
         self.root = root
         self.transform = transform
         self.target_transform = target_transform
 
-        # Load train + test using torchvision
-        self.train_data = CIFAR100(root, train=True, download=download, transform=None)
-        self.test_data = CIFAR100(root, train=False, download=download, transform=None)
+        train_path = os.path.join(root, 'cifar-100-python', 'train')
+        test_path  = os.path.join(root, 'cifar-100-python', 'test')
 
-        # Concatenate data and use coarse_labels
-        self.data = np.concatenate([self.train_data.data, self.test_data.data], axis=0)
-        self.coarse_targets = np.concatenate([
-            np.array(self.train_data.coarse_labels),
-            np.array(self.test_data.coarse_labels)
-        ], axis=0)
+        if download:
+            tv_datasets.CIFAR100(root, train=True, download=True)
+            tv_datasets.CIFAR100(root, train=False, download=True)
 
-        # Map coarse label names
-        self.classes = self.train_data.class_to_idx_coarse  # dict: coarse_name -> idx
-        self.classes = [name for name, idx in sorted(self.classes.items(), key=lambda x: x[1])]
+        with open(train_path, 'rb') as f:
+            entry = pickle.load(f, encoding='latin1')
+            train_imgs = entry['data'].reshape(-1, 3, 32, 32).transpose(0, 2, 3, 1)
+            train_coarse = np.array(entry['coarse_labels'])
 
+        with open(test_path, 'rb') as f:
+            entry = pickle.load(f, encoding='latin1')
+            test_imgs = entry['data'].reshape(-1, 3, 32, 32).transpose(0, 2, 3, 1)
+            test_coarse = np.array(entry['coarse_labels'])
+
+        self.data   = np.concatenate([train_imgs, test_imgs], axis=0)
+        self.targets = np.concatenate([train_coarse, test_coarse], axis=0)
+
+        meta_path = os.path.join(root, 'cifar-100-python', 'meta')
+        with open(meta_path, 'rb') as f:
+            meta = pickle.load(f, encoding='latin1')
+        self.classes = meta['coarse_label_names']          # list of 20 names
+        self.class_to_idx = {name: i for i, name in enumerate(self.classes)}
+
+    # -----------------------------------------------------------------
     def __getitem__(self, index):
-        img = self.data[index]
-        target = self.coarse_targets[index]
-        img = Image.fromarray(img)
+        img = Image.fromarray(self.data[index])
+        target = int(self.targets[index])
 
         if self.transform:
             img = self.transform(img)
