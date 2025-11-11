@@ -1,4 +1,4 @@
-import argparse
+mport argparse
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
@@ -139,6 +139,12 @@ def main():
     parser.add_argument('--similarity_type', type=str, default='kNN')
     parser.add_argument('--hyperparam', type=float, default=20)
     parser.add_argument('--temperature', type=float, default=1.)
+    
+    # ✅ NEW: add dataset argument
+    parser.add_argument('--dataset', type=str, default='CIFAR10',
+                        choices=['CIFAR10', 'CIFAR100_20', 'STL10', 'MNIST', 'COIL100'],
+                        help='Dataset to use for clustering')
+    
     args = parser.parse_args()
     args.cuda = torch.cuda.is_available()
     device = torch.device("cuda" if args.cuda else "cpu")
@@ -151,21 +157,58 @@ def main():
     args = create_logger(args, metrics=['train_loss', 'test_acc'])
     save_logger(args)
 
-    # Initialize the splits
-    trainset = datasets.CIFAR10_ALL(root=os.getcwd(), train=True, download=True, transform=datasets.TransformThrice(datasets.dict_transform['cifar_train']))
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=256, shuffle=True, num_workers=2, drop_last=True)
+    # ✅ MODIFIED: dataset selection logic
+    if args.dataset == 'CIFAR10':
+        trainset = datasets.CIFAR10_ALL(root=os.getcwd(), train=True, download=True,
+                                        transform=datasets.TransformThrice(datasets.dict_transform['cifar_train']))
+        testset = datasets.CIFAR10_ALL(root=os.getcwd(), train=True, download=True,
+                                       transform=datasets.dict_transform['cifar_test'])
+        num_classes = 10
+        rotnet_ckpt = 'RotNet_cifar10.pt'
 
-    testset = datasets.CIFAR10_ALL(root=os.getcwd(), train=True, download=True, transform=datasets.dict_transform['cifar_test'])
+    elif args.dataset == 'CIFAR100_20':
+        trainset = datasets.CIFAR100_ALL(root=os.getcwd(), train=True, download=True,
+                                            transform=datasets.TransformThrice(datasets.dict_transform['cifar_train']))
+        testset = datasets.CIFAR100_ALL(root=os.getcwd(), train=True, download=True,
+                                           transform=datasets.dict_transform['cifar_test'])
+        num_classes = 20
+        rotnet_ckpt = 'RotNet_cifar100_20.pt'  # ✅ reuse CIFAR10 RotNet
+
+    elif args.dataset == 'STL10':
+        trainset = datasets.STL10_ALL(root=os.getcwd(), split='train', download=True,
+                                      transform=datasets.TransformThrice(datasets.dict_transform['stl10_train']))
+        testset = datasets.STL10_ALL(root=os.getcwd(), split='test', download=True,
+                                     transform=datasets.dict_transform['stl10_test'])
+        num_classes = 10
+        rotnet_ckpt = 'RotNet_stl10.pt'  # ✅ reuse CIFAR10 RotNet
+
+    elif args.dataset == 'MNIST':
+        trainset = datasets.MNIST_ALL(root=os.getcwd(), train=True, download=True,
+                                      transform=datasets.TransformThrice(datasets.dict_transform['mnist_train']))
+        testset = datasets.MNIST_ALL(root=os.getcwd(), train=False, download=True,
+                                     transform=datasets.dict_transform['mnist_test'])
+        num_classes = 10
+        rotnet_ckpt = 'RotNet_mnist.pt'  # ✅ may fine-tune later
+
+    elif args.dataset == 'COIL100':
+        trainset = datasets.COIL100_ALL(root=os.getcwd(), train=True,
+                                        transform=datasets.TransformThrice(datasets.dict_transform['coil100_train']))
+        testset = datasets.COIL100_ALL(root=os.getcwd(), train=False,
+                                       transform=datasets.dict_transform['coil100_test'])
+        num_classes = 100
+        rotnet_ckpt = 'RotNet_coil100.pt'  # ✅ external dataset, reuse init
+
+    # ✅ Moved DataLoader creation below
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=256, shuffle=True, num_workers=2, drop_last=True)
     testloader = torch.utils.data.DataLoader(testset, batch_size=1000, shuffle=False, num_workers=1)
 
-    # First network intialization: pretrain the RotNet network
-    model = utils_net.ResNet(utils_net.BasicBlock, [2, 2, 2, 2], 10)
+    # ✅ MODIFIED: use dynamic num_classes and checkpoint
+    model = utils_net.ResNet(utils_net.BasicBlock, [2, 2, 2, 2], num_classes)
     model = model.to(device)
-    state_dict_rotnet = torch.load('RotNet_cifar10.pt')
+    state_dict_rotnet = torch.load(rotnet_ckpt, map_location=device)
     del state_dict_rotnet['linear.weight']
     del state_dict_rotnet['linear.bias']
     model.load_state_dict(state_dict_rotnet, strict=False)
-    model = model.to(device)
 
     # Freeze the earlier filters
     for name, param in model.named_parameters():
