@@ -189,8 +189,8 @@ class CIFAR100_20_ALL(data.Dataset):
         test_path  = os.path.join(root, 'cifar-100-python', 'test')
 
         if download:
-            tv_datasets.CIFAR100(root, train=True, download=True)
-            tv_datasets.CIFAR100(root, train=False, download=True)
+            datasets.CIFAR100(root, train=True, download=True)
+            datasets.CIFAR100(root, train=False, download=True)
 
         with open(train_path, 'rb') as f:
             entry = pickle.load(f, encoding='latin1')
