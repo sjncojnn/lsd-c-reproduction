@@ -173,23 +173,22 @@ def main():
                                            transform=datasets.dict_transform['cifar_test'])
         num_classes = 20
         rotnet_ckpt = 'RotNet_cifar100_20.pt'  
-        
+
     elif args.dataset == 'STL10':
-        trainset = datasets.STL10_ALL(root=os.getcwd(), split='train', download=True,
+        trainset = datasets.STL10_ALL(root=os.getcwd(), download=True,
                                       transform=datasets.TransformThrice(datasets.dict_transform['stl10_train']))
-        testset = datasets.STL10_ALL(root=os.getcwd(), split='test', download=True,
+        testset = datasets.STL10_ALL(root=os.getcwd(), download=True,
                                      transform=datasets.dict_transform['stl10_test'])
         num_classes = 10
-        rotnet_ckpt = 'RotNet_stl10.pt'  # ✅ reuse CIFAR10 RotNet
-
+        rotnet_ckpt = 'RotNet_stl10.pt'
+    
     elif args.dataset == 'MNIST':
-        trainset = datasets.MNIST_ALL(root=os.getcwd(), train=True, download=True,
+        trainset = datasets.MNIST_ALL(root=os.getcwd(), download=True,
                                       transform=datasets.TransformThrice(datasets.dict_transform['mnist_train']))
-        testset = datasets.MNIST_ALL(root=os.getcwd(), train=False, download=True,
+        testset = datasets.MNIST_ALL(root=os.getcwd(), download=True,
                                      transform=datasets.dict_transform['mnist_test'])
         num_classes = 10
-        rotnet_ckpt = 'RotNet_mnist.pt'  # ✅ may fine-tune later
-
+        rotnet_ckpt = 'RotNet_mnist.pt'
     elif args.dataset == 'COIL100':
         trainset = datasets.COIL100_ALL(root=os.getcwd(), train=True,
                                         transform=datasets.TransformThrice(datasets.dict_transform['coil100_train']))
@@ -221,10 +220,14 @@ def main():
 
     for epoch in range(args.epochs):
         args.logger['epoch'] = epoch
+        start_time = time.time() 
         train(args, model, device, trainloader, optimizer, epoch)
         test(args, model, device, testloader)
         scheduler.step()
-        write_txt(args, f"Test acc: {args.logger['test_acc'][-1]}")
+        epoch_time = time.time() - start_time  
+        print(f"Epoch {epoch} finished in {epoch_time:.2f}s")
+        args.logger['epoch_time'] = epoch_time  #
+        write_txt(args, f"Test acc: {args.logger['test_acc'][-1]:.4f} | Time: {epoch_time:.2f}s")
         save_logger(args)
 
 
