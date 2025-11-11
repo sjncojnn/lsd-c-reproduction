@@ -5,7 +5,7 @@ import os.path
 import numpy as np
 import sys
 import torch.utils.data as data
-from torchvision import tv_datasets, transforms
+from torchvision import transforms, datasets as tv_datasets
 
 if sys.version_info[0] == 2:
     import cPickle as pickle
