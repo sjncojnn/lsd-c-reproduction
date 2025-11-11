@@ -167,13 +167,13 @@ def main():
         rotnet_ckpt = 'RotNet_cifar10.pt'
 
     elif args.dataset == 'CIFAR100_20':
-        trainset = datasets.CIFAR100_ALL(root=os.getcwd(), train=True, download=True,
+        trainset = datasets.CIFAR100_20_ALL(root=os.getcwd(), train=True, download=True,
                                             transform=datasets.TransformThrice(datasets.dict_transform['cifar_train']))
-        testset = datasets.CIFAR100_ALL(root=os.getcwd(), train=True, download=True,
+        testset = datasets.CIFAR100_20_ALL(root=os.getcwd(), train=True, download=True,
                                            transform=datasets.dict_transform['cifar_test'])
         num_classes = 20
-        rotnet_ckpt = 'RotNet_cifar100_20.pt'  # ✅ reuse CIFAR10 RotNet
-
+        rotnet_ckpt = 'RotNet_cifar100_20.pt'  
+        
     elif args.dataset == 'STL10':
         trainset = datasets.STL10_ALL(root=os.getcwd(), split='train', download=True,
                                       transform=datasets.TransformThrice(datasets.dict_transform['stl10_train']))
