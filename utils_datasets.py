@@ -3,8 +3,11 @@ from PIL import Image
 import os
 import os.path
 import numpy as np
-from torchvision import datasets
 import sys
+import torch.utils.data as data
+from torchvision import datasets, transforms
+from torchvision.datasets import CIFAR100
+
 if sys.version_info[0] == 2:
     import cPickle as pickle
 else:
@@ -170,102 +173,47 @@ class CIFAR10_ALL(data.Dataset):
         tmp = '    Target Transforms (if any): '
         fmt_str += '{0}{1}'.format(tmp, self.target_transform.__repr__().replace('\n', '\n' + ' ' * len(tmp)))
         return fmt_str
-class CIFAR100_20_ALL(data.Dataset):
-    """CIFAR100-20 Dataset with coarse labels (20 super-classes) - Full train+test"""
-    base_folder = 'cifar-100-python'
-    url = "https://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz"
-    filename = "cifar-100-python.tar.gz"
-    tgz_md5 = 'eb9058c3a382ffc7106e4002c42a8d85'
-    train_list = [
-        ['train', 'f0a5c9a0e9e6b4d39b2d4c2c9c9d9a9d'],  # MD5 giả (sẽ kiểm tra file thực)
-    ]
-    test_list = [
-        ['test', 'a7d95e5d8d3b6e7d8d1c8d9e7f6a5b4c'],
-    ]
-    meta = {
-        'filename': 'meta',
-        'key': 'coarse_label_names',  # Dùng coarse labels (20 classes)
-        'md5': '5ff9c542aee3614f3951f8cda6e48888',
-    }
-    label_type = 'coarse_labels'  # Quan trọng: dùng coarse_labels thay vì fine_labels
 
-    def __init__(self, root, train=True,
-                 transform=None, target_transform=None,
-                 download=False):
-        self.root = os.path.expanduser(root)
+class CIFAR100_20_ALL(data.Dataset):
+    """
+    CIFAR100-20: Full train+test (60,000 samples) with 20 coarse labels.
+    Uses torchvision.datasets.CIFAR100 under the hood.
+    """
+    def __init__(self, root, train=True, transform=None, target_transform=None, download=False):
+        self.root = root
         self.transform = transform
         self.target_transform = target_transform
-        self.train = train
 
-        if download:
-            self.download()
+        # Load train + test using torchvision
+        self.train_data = CIFAR100(root, train=True, download=download, transform=None)
+        self.test_data = CIFAR100(root, train=False, download=download, transform=None)
 
-        if not self._check_integrity():
-            raise RuntimeError('Dataset not found or corrupted. '
-                               'You can use download=True to download it')
+        # Concatenate data and use coarse_labels
+        self.data = np.concatenate([self.train_data.data, self.test_data.data], axis=0)
+        self.coarse_targets = np.concatenate([
+            np.array(self.train_data.coarse_labels),
+            np.array(self.test_data.coarse_labels)
+        ], axis=0)
 
-        # Load train + test
-        self.data = []
-        self.targets = []
-
-        # Load train
-        train_path = os.path.join(self.root, self.base_folder, 'train')
-        with open(train_path, 'rb') as f:
-            entry = pickle.load(f, encoding='latin1')
-            self.data.append(entry['data'])
-            self.targets.extend(entry[self.label_type])
-
-        # Load test
-        test_path = os.path.join(self.root, self.base_folder, 'test')
-        with open(test_path, 'rb') as f:
-            entry = pickle.load(f, encoding='latin1')
-            self.data.append(entry['data'])
-            self.targets.extend(entry[self.label_type])
-
-        self.data = np.vstack(self.data).reshape(-1, 3, 32, 32)
-        self.data = self.data.transpose((0, 2, 3, 1))  # convert to HWC
-
-        self._load_meta()
-
-    def _load_meta(self):
-        path = os.path.join(self.root, self.base_folder, self.meta['filename'])
-        with open(path, 'rb') as infile:
-            data = pickle.load(infile, encoding='latin1')
-            self.classes = data[self.meta['key']]
-        self.class_to_idx = {_class: i for i, _class in enumerate(self.classes)}
+        # Map coarse label names
+        self.classes = self.train_data.class_to_idx_coarse  # dict: coarse_name -> idx
+        self.classes = [name for name, idx in sorted(self.classes.items(), key=lambda x: x[1])]
 
     def __getitem__(self, index):
-        img, target = self.data[index], self.targets[index]
+        img = self.data[index]
+        target = self.coarse_targets[index]
         img = Image.fromarray(img)
 
-        if self.transform is not None:
+        if self.transform:
             img = self.transform(img)
-        if self.target_transform is not None:
+        if self.target_transform:
             target = self.target_transform(target)
 
         return img, target, index
 
     def __len__(self):
         return len(self.data)
-
-    def _check_integrity(self):
-        root = self.root
-        for fentry in (self.train_list + self.test_list):
-            filename, md5 = fentry[0], fentry[1]
-            fpath = os.path.join(root, self.base_folder, filename)
-            if not check_integrity(fpath, md5):
-                return False
-        return True
-
-    def download(self):
-        import tarfile
-        if self._check_integrity():
-            print('Files already downloaded and verified')
-            return
-        download_url(self.url, self.root, self.filename, self.tgz_md5)
-        with tarfile.open(os.path.join(self.root, self.filename), "r:gz") as tar:
-            tar.extractall(path=self.root)
-
+        
 # Dictionary of transforms
 dict_transform = {
     'cifar_train': transforms.Compose([
