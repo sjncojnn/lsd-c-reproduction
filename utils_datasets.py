@@ -3,6 +3,7 @@ from PIL import Image
 import os
 import os.path
 import numpy as np
+from torchvision import datasets
 import sys
 if sys.version_info[0] == 2:
     import cPickle as pickle
@@ -151,7 +152,101 @@ class CIFAR10_ALL(data.Dataset):
         fmt_str += '{0}{1}'.format(tmp, self.target_transform.__repr__().replace('\n', '\n' + ' ' * len(tmp)))
         return fmt_str
 
+class CIFAR100_ALL(data.Dataset):
+    """Merge CIFAR-100 train and test into one set, similar to CIFAR10_ALL"""
+    def __init__(self, root, train=True, transform=None, target_transform=None, download=False):
+        self.root = root
+        self.transform = transform
+        self.target_transform = target_transform
+        self.train = train
 
+        self.dataset_train = datasets.CIFAR100(root=root, train=True, download=download)
+        self.dataset_test = datasets.CIFAR100(root=root, train=False, download=download)
+
+        self.data = np.concatenate((self.dataset_train.data, self.dataset_test.data), axis=0)
+        self.targets = self.dataset_train.targets + self.dataset_test.targets
+
+    def __getitem__(self, index):
+        img, target = self.data[index], self.targets[index]
+        img = Image.fromarray(img)
+        if self.transform:
+            img = self.transform(img)
+        if self.target_transform:
+            target = self.target_transform(target)
+        return img, target, index
+
+    def __len__(self):
+        return len(self.data)
+
+
+class STL10_ALL(data.Dataset):
+    """Use both labeled and unlabeled STL10 data"""
+    def __init__(self, root, split='train', transform=None, target_transform=None, download=False):
+        self.transform = transform
+        self.target_transform = target_transform
+        split = 'train+unlabeled' if split == 'train' else 'test'
+        base = datasets.STL10(root=root, split=split, download=download)
+        self.data = base.data
+        self.targets = base.labels
+
+    def __getitem__(self, index):
+        img = Image.fromarray(np.transpose(self.data[index], (1, 2, 0)))
+        target = int(self.targets[index]) if self.targets is not None else -1
+        if self.transform:
+            img = self.transform(img)
+        if self.target_transform:
+            target = self.target_transform(target)
+        return img, target, index
+
+    def __len__(self):
+        return len(self.data)
+
+
+class MNIST_ALL(data.Dataset):
+    """Merge MNIST train + test and convert to RGB for consistency"""
+    def __init__(self, root, train=True, transform=None, target_transform=None, download=False):
+        transform_rgb = transforms.Compose([
+            transforms.Grayscale(num_output_channels=3),
+        ])
+        base_train = datasets.MNIST(root=root, train=True, download=download)
+        base_test = datasets.MNIST(root=root, train=False, download=download)
+
+        imgs = np.concatenate((base_train.data.numpy(), base_test.data.numpy()), axis=0)
+        self.data = np.stack([transform_rgb(Image.fromarray(img)) for img in imgs])
+        self.targets = base_train.targets.tolist() + base_test.targets.tolist()
+        self.transform = transform
+        self.target_transform = target_transform
+
+    def __getitem__(self, index):
+        img, target = self.data[index], self.targets[index]
+        if self.transform:
+            img = self.transform(img)
+        if self.target_transform:
+            target = self.target_transform(target)
+        return img, target, index
+
+    def __len__(self):
+        return len(self.data)
+
+
+class COIL100_ALL(data.Dataset):
+    """Load COIL100 dataset from local directory (/kaggle/input/coil100/coil-100/coil-100/)"""
+    def __init__(self, root="/kaggle/input/coil100/coil-100/coil-100/", train=True, transform=None):
+        from glob import glob
+        self.img_paths = sorted(glob(os.path.join(root, "*.png")))
+        self.transform = transform
+        self.targets = list(range(len(self.img_paths)))  # pseudo labels
+
+    def __getitem__(self, index):
+        img_path = self.img_paths[index]
+        img = Image.open(img_path).convert("RGB")
+        if self.transform:
+            img = self.transform(img)
+        return img, 0, index  # dummy label for unsupervised use
+
+    def __len__(self):
+        return len(self.img_paths)
+        
 class TransformTwice:
     def __init__(self, transform):
         self.transform = transform
@@ -218,3 +313,31 @@ dict_transform = {
         transforms.ToTensor(),
     ])
 }
+dict_transform.update({
+    'cifar100_train': dict_transform['cifar_train'],
+    'cifar100_test': dict_transform['cifar_test'],
+    'mnist_train': transforms.Compose([
+        transforms.Resize(32),
+        transforms.Grayscale(num_output_channels=3),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5,), (0.5,))
+    ]),
+    'mnist_test': transforms.Compose([
+        transforms.Resize(32),
+        transforms.Grayscale(num_output_channels=3),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5,), (0.5,))
+    ]),
+    'coil100_train': transforms.Compose([
+        transforms.Resize(128),
+        transforms.CenterCrop(128),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5,), (0.5,))
+    ]),
+    'coil100_test': transforms.Compose([
+        transforms.Resize(128),
+        transforms.CenterCrop(128),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5,), (0.5,))
+    ])
+})
