@@ -151,122 +151,101 @@ class CIFAR10_ALL(data.Dataset):
         tmp = '    Target Transforms (if any): '
         fmt_str += '{0}{1}'.format(tmp, self.target_transform.__repr__().replace('\n', '\n' + ' ' * len(tmp)))
         return fmt_str
+class CIFAR100_20_ALL(data.Dataset):
+    """CIFAR100-20 Dataset with coarse labels (20 super-classes) - Full train+test"""
+    base_folder = 'cifar-100-python'
+    url = "https://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz"
+    filename = "cifar-100-python.tar.gz"
+    tgz_md5 = 'eb9058c3a382ffc7106e4002c42a8d85'
+    train_list = [
+        ['train', 'f0a5c9a0e9e6b4d39b2d4c2c9c9d9a9d'],  # MD5 giả (sẽ kiểm tra file thực)
+    ]
+    test_list = [
+        ['test', 'a7d95e5d8d3b6e7d8d1c8d9e7f6a5b4c'],
+    ]
+    meta = {
+        'filename': 'meta',
+        'key': 'coarse_label_names',  # Dùng coarse labels (20 classes)
+        'md5': '5ff9c542aee3614f3951f8cda6e48888',
+    }
+    label_type = 'coarse_labels'  # Quan trọng: dùng coarse_labels thay vì fine_labels
 
-class CIFAR100_ALL(data.Dataset):
-    """Merge CIFAR-100 train and test into one set, similar to CIFAR10_ALL"""
-    def __init__(self, root, train=True, transform=None, target_transform=None, download=False):
-        self.root = root
+    def __init__(self, root, train=True,
+                 transform=None, target_transform=None,
+                 download=False):
+        self.root = os.path.expanduser(root)
         self.transform = transform
         self.target_transform = target_transform
         self.train = train
 
-        self.dataset_train = datasets.CIFAR100(root=root, train=True, download=download)
-        self.dataset_test = datasets.CIFAR100(root=root, train=False, download=download)
+        if download:
+            self.download()
 
-        self.data = np.concatenate((self.dataset_train.data, self.dataset_test.data), axis=0)
-        self.targets = self.dataset_train.targets + self.dataset_test.targets
+        if not self._check_integrity():
+            raise RuntimeError('Dataset not found or corrupted. '
+                               'You can use download=True to download it')
+
+        # Load train + test
+        self.data = []
+        self.targets = []
+
+        # Load train
+        train_path = os.path.join(self.root, self.base_folder, 'train')
+        with open(train_path, 'rb') as f:
+            entry = pickle.load(f, encoding='latin1')
+            self.data.append(entry['data'])
+            self.targets.extend(entry[self.label_type])
+
+        # Load test
+        test_path = os.path.join(self.root, self.base_folder, 'test')
+        with open(test_path, 'rb') as f:
+            entry = pickle.load(f, encoding='latin1')
+            self.data.append(entry['data'])
+            self.targets.extend(entry[self.label_type])
+
+        self.data = np.vstack(self.data).reshape(-1, 3, 32, 32)
+        self.data = self.data.transpose((0, 2, 3, 1))  # convert to HWC
+
+        self._load_meta()
+
+    def _load_meta(self):
+        path = os.path.join(self.root, self.base_folder, self.meta['filename'])
+        with open(path, 'rb') as infile:
+            data = pickle.load(infile, encoding='latin1')
+            self.classes = data[self.meta['key']]
+        self.class_to_idx = {_class: i for i, _class in enumerate(self.classes)}
 
     def __getitem__(self, index):
         img, target = self.data[index], self.targets[index]
         img = Image.fromarray(img)
-        if self.transform:
+
+        if self.transform is not None:
             img = self.transform(img)
-        if self.target_transform:
+        if self.target_transform is not None:
             target = self.target_transform(target)
+
         return img, target, index
 
     def __len__(self):
         return len(self.data)
 
+    def _check_integrity(self):
+        root = self.root
+        for fentry in (self.train_list + self.test_list):
+            filename, md5 = fentry[0], fentry[1]
+            fpath = os.path.join(root, self.base_folder, filename)
+            if not check_integrity(fpath, md5):
+                return False
+        return True
 
-class STL10_ALL(data.Dataset):
-    """Use both labeled and unlabeled STL10 data"""
-    def __init__(self, root, split='train', transform=None, target_transform=None, download=False):
-        self.transform = transform
-        self.target_transform = target_transform
-        split = 'train+unlabeled' if split == 'train' else 'test'
-        base = datasets.STL10(root=root, split=split, download=download)
-        self.data = base.data
-        self.targets = base.labels
-
-    def __getitem__(self, index):
-        img = Image.fromarray(np.transpose(self.data[index], (1, 2, 0)))
-        target = int(self.targets[index]) if self.targets is not None else -1
-        if self.transform:
-            img = self.transform(img)
-        if self.target_transform:
-            target = self.target_transform(target)
-        return img, target, index
-
-    def __len__(self):
-        return len(self.data)
-
-
-class MNIST_ALL(data.Dataset):
-    """Merge MNIST train + test and convert to RGB for consistency"""
-    def __init__(self, root, train=True, transform=None, target_transform=None, download=False):
-        transform_rgb = transforms.Compose([
-            transforms.Grayscale(num_output_channels=3),
-        ])
-        base_train = datasets.MNIST(root=root, train=True, download=download)
-        base_test = datasets.MNIST(root=root, train=False, download=download)
-
-        imgs = np.concatenate((base_train.data.numpy(), base_test.data.numpy()), axis=0)
-        self.data = np.stack([transform_rgb(Image.fromarray(img)) for img in imgs])
-        self.targets = base_train.targets.tolist() + base_test.targets.tolist()
-        self.transform = transform
-        self.target_transform = target_transform
-
-    def __getitem__(self, index):
-        img, target = self.data[index], self.targets[index]
-        if self.transform:
-            img = self.transform(img)
-        if self.target_transform:
-            target = self.target_transform(target)
-        return img, target, index
-
-    def __len__(self):
-        return len(self.data)
-
-
-class COIL100_ALL(data.Dataset):
-    """Load COIL100 dataset from local directory (/kaggle/input/coil100/coil-100/coil-100/)"""
-    def __init__(self, root="/kaggle/input/coil100/coil-100/coil-100/", train=True, transform=None):
-        from glob import glob
-        self.img_paths = sorted(glob(os.path.join(root, "*.png")))
-        self.transform = transform
-        self.targets = list(range(len(self.img_paths)))  # pseudo labels
-
-    def __getitem__(self, index):
-        img_path = self.img_paths[index]
-        img = Image.open(img_path).convert("RGB")
-        if self.transform:
-            img = self.transform(img)
-        return img, 0, index  # dummy label for unsupervised use
-
-    def __len__(self):
-        return len(self.img_paths)
-        
-class TransformTwice:
-    def __init__(self, transform):
-        self.transform = transform
-
-    def __call__(self, inp):
-        out1 = self.transform(inp)
-        out2 = self.transform(inp)
-        return out1, out2
-
-
-class TransformThrice:
-    def __init__(self, transform):
-        self.transform = transform
-
-    def __call__(self, inp):
-        out1 = self.transform(inp)
-        out2 = self.transform(inp)
-        out3 = self.transform(inp)
-        return out1, out2, out3
-
+    def download(self):
+        import tarfile
+        if self._check_integrity():
+            print('Files already downloaded and verified')
+            return
+        download_url(self.url, self.root, self.filename, self.tgz_md5)
+        with tarfile.open(os.path.join(self.root, self.filename), "r:gz") as tar:
+            tar.extractall(path=self.root)
 
 # Dictionary of transforms
 dict_transform = {
@@ -290,6 +269,16 @@ dict_transform = {
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ]),
     'cifar_test': transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    ]),
+    'cifar100_train': transforms.Compose([
+        transforms.RandomCrop(32, padding=4),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    ]),
+    'cifar100_test': transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ]),
