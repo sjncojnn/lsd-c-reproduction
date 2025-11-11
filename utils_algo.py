@@ -1,7 +1,12 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from sklearn.utils.linear_assignment_ import linear_assignment
+from scipy.optimize import linear_sum_assignment
+import numpy as np
+
+def linear_assignment(X):
+    inds = linear_sum_assignment(X)
+    return np.array(list(zip(*inds)))
 
 
 def cluster_acc(y_true, y_pred):
