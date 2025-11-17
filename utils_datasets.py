@@ -262,8 +262,8 @@ class MNIST_ALL(data.Dataset):
     def __init__(self, root='./data', transform=None, download=True):
         self.transform = transform
         
-        trainset = MNIST(root=root, train=True, download=download)
-        testset = MNIST(root=root, train=False, download=download)
+        trainset = tv_datasets.MNIST(root=root, train=True, download=download)
+        testset = tv_datasets.MNIST(root=root, train=False, download=download)
         
         # Gộp train + test
         self.data = torch.cat([trainset.data, testset.data])  # shape: (70000, 28, 28)
