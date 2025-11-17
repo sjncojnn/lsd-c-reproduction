@@ -259,31 +259,32 @@ class STL10_ALL(data.Dataset):
 # MNIST_ALL (70,000 samples, 10 classes)
 # ================================
 class MNIST_ALL(data.Dataset):
-    """MNIST full (train + test)"""
-    def __init__(self, root, transform=None, target_transform=None, download=False):
+    def __init__(self, root='./data', transform=None, download=True):
         self.transform = transform
-        self.target_transform = target_transform
-
-        trainset = tv_datasets.MNIST(root, train=True, download=download)
-        testset = tv_datasets.MNIST(root, train=False, download=download)
-
-        self.data = np.concatenate([trainset.data.numpy(), testset.data.numpy()], axis=0)
-        self.targets = np.concatenate([np.array(trainset.targets), np.array(testset.targets)], axis=0)
-
-        self.classes = [str(i) for i in range(10)]
-        self.class_to_idx = {cls: i for i, cls in enumerate(self.classes)}
-
-    def __getitem__(self, index):
-        img = Image.fromarray(self.data[index], mode='L')  # Grayscale
-        target = int(self.targets[index])
-        if self.transform:
-            img = self.transform(img)
-        if self.target_transform:
-            target = self.target_transform(target)
-        return img, target, index
+        
+        trainset = MNIST(root=root, train=True, download=download)
+        testset = MNIST(root=root, train=False, download=download)
+        
+        # Gộp train + test
+        self.data = torch.cat([trainset.data, testset.data])  # shape: (70000, 28, 28)
+        self.targets = torch.cat([trainset.targets, testset.targets])
 
     def __len__(self):
         return len(self.data)
+
+    def __getitem__(self, index):
+        img = self.data[index]                    # tensor (28,28)
+        img = Image.fromarray(img.numpy(), mode='L')  # chuyển thành PIL để transform
+        target = int(self.targets[index])
+
+        if self.transform is not None:
+            # TransformThrice sẽ trả về 3 ảnh khác nhau
+            img1, img2, img3 = self.transform(img)
+        else:
+            to_tensor = transforms.ToTensor()
+            img1 = img2 = img3 = to_tensor(img)
+
+        return (img1, img2, img3), target, index
         
 # Dictionary of transforms
 dict_transform = {
