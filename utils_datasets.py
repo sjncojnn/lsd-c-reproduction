@@ -293,7 +293,7 @@ class MNIST_ALL(data.Dataset):
             return img, target, index
 
 class COIL100_ALL(data.Dataset):
-    def __init__(self, root='data/coil-100/coil-100', transform=None):
+    def __init__(self, root='data/coil-100/coil-100', train=True, transform=None):
         self.root = root
         self.transform = transform
         self.filenames = sorted(glob.glob(os.path.join(root, "*.png")))
