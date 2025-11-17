@@ -9,6 +9,7 @@ import utils_net
 import numpy as np
 import os
 import time 
+from torchvision.datasets import MNIST
 
 
 def train(args, model, device, train_loader, optimizer, epoch):
