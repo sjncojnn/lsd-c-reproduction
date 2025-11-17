@@ -213,12 +213,15 @@ def main():
     state_dict_rotnet = torch.load(rotnet_ckpt, map_location=device)
     # del state_dict_rotnet['linear.weight']
     # del state_dict_rotnet['linear.bias']
-    model.load_state_dict(state_dict_rotnet, strict=False)
-    state_dict_rotnet = torch.load(rotnet_ckpt, map_location=device)
+    if args.dataset == 'MNIST':
+        # VGG4MNIST dùng tên classifier.2.weight / classifier.2.bias
+        keys_to_remove = [k for k in state_dict_rotnet.keys() if k.startswith('classifier.')]
+    else:
+        # CIFAR/STL10/COIL100 dùng linear.weight
+        keys_to_remove = ['linear.weight', 'linear.bias']
 
-    keys_to_remove = [k for k in state_dict_rotnet.keys() if 'linear' in k or 'classifier' in k]
     for k in keys_to_remove:
-        del state_dict_rotnet[k]
+        state_dict_rotnet.pop(k, None)
     
     model.load_state_dict(state_dict_rotnet, strict=False)
     print(f"Loaded {rotnet_ckpt} → removed {len(keys_to_remove)} classifier keys")
