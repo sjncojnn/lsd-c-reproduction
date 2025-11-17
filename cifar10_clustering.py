@@ -144,7 +144,7 @@ def main():
     
     # ✅ NEW: add dataset argument
     parser.add_argument('--dataset', type=str, default='CIFAR10',
-                        choices=['CIFAR10', 'CIFAR100_20', 'STL10', 'COIL100'],
+                        choices=['CIFAR10', 'CIFAR100_20', 'STL10', 'MNIST', 'COIL100'],
                         help='Dataset to use for clustering')
     
     args = parser.parse_args()
@@ -182,6 +182,22 @@ def main():
                                      transform=datasets.dict_transform['stl10_test'])
         num_classes = 10
         rotnet_ckpt = 'RotNet_stl10.pt'
+
+    elif args.dataset == 'MNIST':
+        trainset = MNIST_ALL(root='./data', download=True,
+                             transform=datasets.TransformThrice(datasets.dict_transform['mnist_train']))
+        testset = MNIST_ALL(root='./data', download=True,
+                            transform=datasets.dict_transform['mnist_test'])
+        num_classes = 10
+        rotnet_ckpt = 'rotnet_mnist_pretrained.pth'  # file bạn train ở trên
+        model_class = utils_net.VGG4MNIST
+        args.epochs = 15
+        args.rampup_length = 10
+        args.rampup_coefficient = 10.0
+        args.hyperparam = 10   # k=10 cho kNN
+        args.similarity_type = 'kNN'
+        args.milestones = [10]
+        
     elif args.dataset == 'COIL100':
         trainset = datasets.COIL100_ALL(root=os.getcwd(), train=True,
                                         transform=datasets.TransformThrice(datasets.dict_transform['coil100_train']))
@@ -195,8 +211,11 @@ def main():
     testloader = torch.utils.data.DataLoader(testset, batch_size=1000, shuffle=False, num_workers=1)
 
     # ✅ MODIFIED: use dynamic num_classes and checkpoint
-    model = utils_net.ResNet(utils_net.BasicBlock, [2, 2, 2, 2], num_classes)
-    model = model.to(device)
+    if args.dataset == 'MNIST':
+        model = model_class(num_classes).to(device)
+    else:
+        model = utils_net.ResNet(utils_net.BasicBlock, [2, 2, 2, 2], num_classes)
+        model = model.to(device)
     state_dict_rotnet = torch.load(rotnet_ckpt, map_location=device)
     del state_dict_rotnet['linear.weight']
     del state_dict_rotnet['linear.bias']
@@ -204,8 +223,12 @@ def main():
 
     # Freeze the earlier filters
     for name, param in model.named_parameters():
-        if 'linear' not in name and 'layer4' not in name:
-            param.requires_grad = False
+        if args.dataset == 'MNIST':
+            if 'classifier' not in name:  # chỉ train classifier + layer cuối
+                param.requires_grad = False
+        else:
+            if 'linear' not in name and 'layer4' not in name:
+                param.requires_grad = False
 
     # Set the optimizer
     optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4, nesterov=False)
