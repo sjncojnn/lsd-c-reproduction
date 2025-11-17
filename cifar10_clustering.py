@@ -184,19 +184,13 @@ def main():
         rotnet_ckpt = 'RotNet_stl10.pt'
 
     elif args.dataset == 'MNIST':
-        trainset = MNIST_ALL(root='./data', download=True,
+        trainset =  datasets.MNIST_ALL(root='./data', download=True,
                              transform=datasets.TransformThrice(datasets.dict_transform['mnist_train']))
-        testset = MNIST_ALL(root='./data', download=True,
+        testset = datasets.MNIST_ALL(root='./data', download=True,
                             transform=datasets.dict_transform['mnist_test'])
         num_classes = 10
         rotnet_ckpt = 'rotnet_mnist_pretrained.pth'  # file bạn train ở trên
         model_class = utils_net.VGG4MNIST
-        args.epochs = 15
-        args.rampup_length = 10
-        args.rampup_coefficient = 10.0
-        args.hyperparam = 10   # k=10 cho kNN
-        args.similarity_type = 'kNN'
-        args.milestones = [10]
         
     elif args.dataset == 'COIL100':
         trainset = datasets.COIL100_ALL(root=os.getcwd(), train=True,
