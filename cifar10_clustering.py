@@ -143,7 +143,7 @@ def main():
     
     # ✅ NEW: add dataset argument
     parser.add_argument('--dataset', type=str, default='CIFAR10',
-                        choices=['CIFAR10', 'CIFAR100_20', 'STL10', 'MNIST', 'COIL100'],
+                        choices=['CIFAR10', 'CIFAR100_20', 'STL10', 'COIL100'],
                         help='Dataset to use for clustering')
     
     args = parser.parse_args()
@@ -157,7 +157,6 @@ def main():
     # Logger
     args = create_logger(args, metrics=['train_loss', 'test_acc'])
     save_logger(args)
-    in_channels = 3
     # ✅ MODIFIED: dataset selection logic
     if args.dataset == 'CIFAR10':
         trainset = datasets.CIFAR10_ALL(root=os.getcwd(), train=True, download=True,
@@ -182,15 +181,6 @@ def main():
                                      transform=datasets.dict_transform['stl10_test'])
         num_classes = 10
         rotnet_ckpt = 'RotNet_stl10.pt'
-    
-    elif args.dataset == 'MNIST':
-        trainset = datasets.MNIST_ALL(root=os.getcwd(), download=True,
-                                      transform=datasets.TransformThrice(datasets.dict_transform['mnist_train']))
-        testset = datasets.MNIST_ALL(root=os.getcwd(), download=True,
-                                     transform=datasets.dict_transform['mnist_test'])
-        num_classes = 10
-        rotnet_ckpt = 'RotNet_mnist.pt'
-        in_channels = 1
     elif args.dataset == 'COIL100':
         trainset = datasets.COIL100_ALL(root=os.getcwd(), train=True,
                                         transform=datasets.TransformThrice(datasets.dict_transform['coil100_train']))
@@ -204,7 +194,7 @@ def main():
     testloader = torch.utils.data.DataLoader(testset, batch_size=1000, shuffle=False, num_workers=1)
 
     # ✅ MODIFIED: use dynamic num_classes and checkpoint
-    model = utils_net.ResNet(utils_net.BasicBlock, [2, 2, 2, 2], num_classes, in_channels)
+    model = utils_net.ResNet(utils_net.BasicBlock, [2, 2, 2, 2], num_classes)
     model = model.to(device)
     state_dict_rotnet = torch.load(rotnet_ckpt, map_location=device)
     del state_dict_rotnet['linear.weight']
