@@ -157,7 +157,7 @@ def main():
     # Logger
     args = create_logger(args, metrics=['train_loss', 'test_acc'])
     save_logger(args)
-
+    in_channels = 3
     # ✅ MODIFIED: dataset selection logic
     if args.dataset == 'CIFAR10':
         trainset = datasets.CIFAR10_ALL(root=os.getcwd(), train=True, download=True,
@@ -190,6 +190,7 @@ def main():
                                      transform=datasets.dict_transform['mnist_test'])
         num_classes = 10
         rotnet_ckpt = 'RotNet_mnist.pt'
+        in_channels = 1
     elif args.dataset == 'COIL100':
         trainset = datasets.COIL100_ALL(root=os.getcwd(), train=True,
                                         transform=datasets.TransformThrice(datasets.dict_transform['coil100_train']))
@@ -203,7 +204,7 @@ def main():
     testloader = torch.utils.data.DataLoader(testset, batch_size=1000, shuffle=False, num_workers=1)
 
     # ✅ MODIFIED: use dynamic num_classes and checkpoint
-    model = utils_net.ResNet(utils_net.BasicBlock, [2, 2, 2, 2], num_classes)
+    model = utils_net.ResNet(utils_net.BasicBlock, [2, 2, 2, 2], num_classes, in_channels)
     model = model.to(device)
     state_dict_rotnet = torch.load(rotnet_ckpt, map_location=device)
     del state_dict_rotnet['linear.weight']
