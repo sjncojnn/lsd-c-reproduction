@@ -188,9 +188,6 @@ def main():
                              transform=datasets.TransformThrice(datasets.dict_transform['mnist_train']))
         testset = datasets.MNIST_ALL(root='./data', download=True,
                             transform=datasets.dict_transform['mnist_test'])
-        testset = datasets.MNIST_ALL(root='./data', download=True, 
-                             transform=datasets.TransformThrice(datasets.dict_transform['mnist_test'])  
-        )
         num_classes = 10
         rotnet_ckpt = 'rotnet_mnist_pretrained.pth'  # file bạn train ở trên
         model_class = utils_net.VGG4MNIST
