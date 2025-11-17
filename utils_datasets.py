@@ -274,18 +274,23 @@ class MNIST_ALL(data.Dataset):
         return len(self.data)
 
     def __getitem__(self, index):
-        img = self.data[index]                    # tensor (28,28)
-        img = Image.fromarray(img.numpy(), mode='L')  # chuyển thành PIL để transform
+        img = self.data[index]
+        img = Image.fromarray(img.numpy(), mode='L')
         target = int(self.targets[index])
-
+    
         if self.transform is not None:
-            # TransformThrice sẽ trả về 3 ảnh khác nhau
-            img1, img2, img3 = self.transform(img)
+            transformed = self.transform(img)  # có thể là 1 ảnh hoặc (img1,img2,img3)
+            
+            # Tự động phát hiện: nếu là TransformThrice → trả về tuple 3 ảnh
+            if isinstance(transformed, tuple) and len(transformed) == 3:
+                img1, img2, img3 = transformed
+                return (img1, img2, img3), target, index
+            else:
+                # Chỉ là 1 ảnh → trả về đúng format cho test
+                return transformed, target, index
         else:
-            to_tensor = transforms.ToTensor()
-            img1 = img2 = img3 = to_tensor(img)
-
-        return (img1, img2, img3), target, index
+            img = transforms.ToTensor()(img)
+            return img, target, index
         
 # Dictionary of transforms
 dict_transform = {
