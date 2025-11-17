@@ -291,7 +291,32 @@ class MNIST_ALL(data.Dataset):
         else:
             img = transforms.ToTensor()(img)
             return img, target, index
-        
+
+class COIL100_ALL(data.Dataset):
+    def __init__(self, root='data/coil-100/coil-100', transform=None):
+        self.root = root
+        self.transform = transform
+        self.filenames = sorted(glob.glob(os.path.join(root, "*.png")))
+        # obj1__0.png → class 0, obj100__355.png → class 99
+        self.targets = [int(f.split('obj')[1].split('__')[0]) - 1 for f in self.filenames]
+
+    def __len__(self):
+        return len(self.filenames)
+
+    def __getitem__(self, index):
+        img = Image.open(self.filenames[index]).convert('RGB')
+        target = self.targets[index]
+
+        if self.transform is not None:
+            if isinstance(self.transform, TransformThrice):
+                img1, img2, img3 = self.transform(img)
+                return (img1, img2, img3), target, index
+            else:
+                img = self.transform(img)
+                return img, target, index
+        else:
+            return transforms.ToTensor()(img), target, index
+            
 # Dictionary of transforms
 dict_transform = {
     'cifar_train': transforms.Compose([
