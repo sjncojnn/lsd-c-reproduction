@@ -211,9 +211,17 @@ def main():
         model = utils_net.ResNet(utils_net.BasicBlock, [2, 2, 2, 2], num_classes)
         model = model.to(device)
     state_dict_rotnet = torch.load(rotnet_ckpt, map_location=device)
-    del state_dict_rotnet['linear.weight']
-    del state_dict_rotnet['linear.bias']
+    # del state_dict_rotnet['linear.weight']
+    # del state_dict_rotnet['linear.bias']
     model.load_state_dict(state_dict_rotnet, strict=False)
+    state_dict_rotnet = torch.load(rotnet_ckpt, map_location=device)
+
+    keys_to_remove = [k for k in state_dict_rotnet.keys() if 'linear' in k or 'classifier' in k]
+    for k in keys_to_remove:
+        del state_dict_rotnet[k]
+    
+    model.load_state_dict(state_dict_rotnet, strict=False)
+    print(f"Loaded {rotnet_ckpt} → removed {len(keys_to_remove)} classifier keys")
 
     # Freeze the earlier filters
     for name, param in model.named_parameters():
