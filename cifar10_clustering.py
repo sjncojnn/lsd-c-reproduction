@@ -218,6 +218,7 @@ def main():
     state_dict = ckpt.get('model_state_dict', ckpt)
     if args.dataset == 'MNIST':
         remove_keys = [k for k in state_dict.keys() if k.startswith('classifier')]
+        print(remove_keys)
     else:
         remove_keys = ['linear.weight', 'linear.bias']
 
