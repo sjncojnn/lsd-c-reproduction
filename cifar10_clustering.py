@@ -62,9 +62,6 @@ def train(args, model, device, train_loader, optimizer, epoch):
         prob, prob_bar, prob_bar2 = F.softmax(output, dim=1), F.softmax(output_bar, dim=1), F.softmax(output_bar2, dim=1)
 
         # Similarity labels
-        if batch_idx == 0:
-            print(f"Feature shape: {feat.shape}")  # phải là [batch_size, 512]
-            print(f"Output shape: {output.shape}") # phải là [batch_size, 10]
         feat_detach = feat.detach()
         if args.similarity_type == 'cosine':
             feat_norm = feat_detach / torch.norm(feat_detach, 2, 1, keepdim=True)
@@ -209,49 +206,34 @@ def main():
 
     # ✅ MODIFIED: use dynamic num_classes and checkpoint
     if args.dataset == 'MNIST':
-        model = utils_net.VGG4MNIST(num_classes=num_classes).to(device)
+        model = model_class(num_classes).to(device)
     else:
-        model = utils_net.ResNet(utils_net.BasicBlock, [2, 2, 2, 2], 
-                                 num_classes=num_classes, in_channels=3).to(device)
-    ckpt_path = rotnet_ckpt
-    if not os.path.exists(ckpt_path):
-        raise FileNotFoundError(f"Pretrained checkpoint not found: {ckpt_path}")
-
-    ckpt = torch.load(ckpt_path, map_location=device)
-    state_dict = ckpt.get('model_state_dict', ckpt)
-    if args.dataset == 'MNIST':
-        remove_keys = [k for k in state_dict.keys() if k.startswith('classifier.2')]
-        print(remove_keys)
-    else:
-        remove_keys = ['linear.weight', 'linear.bias']
-
-    for k in remove_keys:
-        state_dict.pop(k, None)
-    model.load_state_dict(state_dict, strict=False)
-    print(f"Loaded pretrained backbone: {ckpt_path} | Removed {len(remove_keys)} classifier keys")
-    for name, param in model.named_parameters():
-        if args.dataset == 'MNIST':
-            if 'fc' in name or 'classifier' in name:
-                param.requires_grad = True
-            else:
-                param.requires_grad = False
-        else:  # CIFAR/STL10
-            if 'layer4' in name or 'linear' in name:
-                param.requires_grad = True
-            else:
-                param.requires_grad = False
-    
-    # model = utils_net.ResNet(utils_net.BasicBlock, [2, 2, 2, 2], num_classes)
-    # model = model.to(device)
-    # state_dict_rotnet = torch.load(rotnet_ckpt, map_location=device)
+        model = utils_net.ResNet(utils_net.BasicBlock, [2, 2, 2, 2], num_classes)
+        model = model.to(device)
+    state_dict_rotnet = torch.load(rotnet_ckpt, map_location=device)
     # del state_dict_rotnet['linear.weight']
     # del state_dict_rotnet['linear.bias']
-    # model.load_state_dict(state_dict_rotnet, strict=False)
+    if args.dataset == 'MNIST':
+        # VGG4MNIST dùng tên classifier.2.weight / classifier.2.bias
+        keys_to_remove = [k for k in state_dict_rotnet.keys() if k.startswith('classifier.')]
+    else:
+        # CIFAR/STL10/COIL100 dùng linear.weight
+        keys_to_remove = ['linear.weight', 'linear.bias']
 
-    # # Freeze the earlier filters
-    # for name, param in model.named_parameters():
-    #     if 'linear' not in name and 'layer4' not in name:
-    #         param.requires_grad = False
+    for k in keys_to_remove:
+        state_dict_rotnet.pop(k, None)
+    
+    model.load_state_dict(state_dict_rotnet, strict=False)
+    print(f"Loaded {rotnet_ckpt} → removed {len(keys_to_remove)} classifier keys")
+
+    # Freeze the earlier filters
+    for name, param in model.named_parameters():
+        if args.dataset == 'MNIST':
+            if 'classifier' not in name:  # chỉ train classifier + layer cuối
+                param.requires_grad = False
+        else:
+            if 'linear' not in name and 'layer4' not in name:
+                param.requires_grad = False
 
     # Set the optimizer
     optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4, nesterov=False)
