@@ -217,7 +217,7 @@ def main():
     ckpt = torch.load(ckpt_path, map_location=device)
     state_dict = ckpt.get('model_state_dict', ckpt)
     if args.dataset == 'MNIST':
-        remove_keys = [k for k in state_dict.keys() if k.startswith('classifier') or k.startswith('fc')]
+        remove_keys = [k for k in state_dict.keys() if k.startswith('classifier')]
     else:
         remove_keys = ['linear.weight', 'linear.bias']
 
