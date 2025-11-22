@@ -62,6 +62,9 @@ def train(args, model, device, train_loader, optimizer, epoch):
         prob, prob_bar, prob_bar2 = F.softmax(output, dim=1), F.softmax(output_bar, dim=1), F.softmax(output_bar2, dim=1)
 
         # Similarity labels
+        if batch_idx == 0:
+            print(f"Feature shape: {feat.shape}")  # phải là [batch_size, 512]
+            print(f"Output shape: {output.shape}") # phải là [batch_size, 10]
         feat_detach = feat.detach()
         if args.similarity_type == 'cosine':
             feat_norm = feat_detach / torch.norm(feat_detach, 2, 1, keepdim=True)
