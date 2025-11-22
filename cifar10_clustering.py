@@ -228,13 +228,23 @@ def main():
 
     # Freeze the earlier filters
     for name, param in model.named_parameters():
+        # if args.dataset == 'MNIST':
+        #     if 'classifier' not in name:  # chỉ train classifier + layer cuối
+        #         param.requires_grad = False
+        # else:
+        #     if 'linear' not in name and 'layer4' not in name:
+        #         param.requires_grad = False
+        
         if args.dataset == 'MNIST':
-            if 'classifier' not in name:  # chỉ train classifier + layer cuối
+            if 'fc' in name or 'classifier' in name:
+                param.requires_grad = True
+            else:
                 param.requires_grad = False
-        else:
-            if 'linear' not in name and 'layer4' not in name:
+        else:  # CIFAR/STL10
+            if 'layer4' in name or 'linear' in name:
+                param.requires_grad = True
+            else:
                 param.requires_grad = False
-
     # Set the optimizer
     optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4, nesterov=False)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.milestones, gamma=0.1)
