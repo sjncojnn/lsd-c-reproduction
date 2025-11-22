@@ -220,7 +220,7 @@ def main():
     ckpt = torch.load(ckpt_path, map_location=device)
     state_dict = ckpt.get('model_state_dict', ckpt)
     if args.dataset == 'MNIST':
-        remove_keys = [k for k in state_dict.keys() if k.startswith('classifier')]
+        remove_keys = [k for k in state_dict.keys() if k.startswith('classifier.2')]
         print(remove_keys)
     else:
         remove_keys = ['linear.weight', 'linear.bias']
@@ -241,10 +241,10 @@ def main():
             else:
                 param.requires_grad = False
 
-    if args.dataset in ['CIFAR100_20', 'MNIST']:
+    if args.dataset in ['CIFAR100_20']:
         print("Unfreezing last convolutional block for better adaptation...")
         for name, param in model.named_parameters():
-            if 'layer4' in name or ('features.6' in name and args.dataset == 'MNIST'):  # MNIST: conv cuối
+            if 'layer3' in name:  
                 param.requires_grad = True
     
     # model = utils_net.ResNet(utils_net.BasicBlock, [2, 2, 2, 2], num_classes)
