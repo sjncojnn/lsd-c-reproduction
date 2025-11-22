@@ -240,12 +240,6 @@ def main():
                 param.requires_grad = True
             else:
                 param.requires_grad = False
-
-    if args.dataset in ['CIFAR100_20']:
-        print("Unfreezing last convolutional block for better adaptation...")
-        for name, param in model.named_parameters():
-            if 'layer3' in name:  
-                param.requires_grad = True
     
     # model = utils_net.ResNet(utils_net.BasicBlock, [2, 2, 2, 2], num_classes)
     # model = model.to(device)
