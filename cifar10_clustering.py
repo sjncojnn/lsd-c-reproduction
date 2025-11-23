@@ -194,7 +194,7 @@ def main():
         
     elif args.dataset == 'COIL100':
         dataset = datasets.COIL100_ALL(root='./data', download=True,
-                                   transform=datasets.TransformThrice(dict_transform['coil100_train']))
+                                   transform=datasets.TransformThrice(datasets.dict_transform['coil100_train']))
         trainset = dataset
         testset = dataset
         num_classes = 100
