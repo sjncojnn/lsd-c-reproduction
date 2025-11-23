@@ -193,9 +193,8 @@ def main():
         model_class = utils_net.VGG4MNIST
         
     elif args.dataset == 'COIL100':
-        dataset = datasets.COIL100_ALL(transform=datasets.TransformThrice(datasets.dict_transform['coil100_train']))
-        trainset = dataset
-        testset = dataset
+        trainset = datasets.COIL100_ALL(transform=datasets.TransformThrice(datasets.dict_transform['coil100_train']))
+        testset = datasets.COIL100_ALL(transform=datasets.dict_transform['coil100_test'])
         num_classes = 100
         rotnet_ckpt = 'RotNet_coil100.pt'  # ✅ external dataset, reuse init
         
