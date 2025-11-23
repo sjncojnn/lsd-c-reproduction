@@ -201,7 +201,7 @@ def main():
 
     # ✅ Moved DataLoader creation below
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=256, shuffle=True, num_workers=2, drop_last=True)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=1000, shuffle=False, num_workers=1)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=256, shuffle=False, num_workers=1)
 
     # ✅ MODIFIED: use dynamic num_classes and checkpoint
     if args.dataset == 'MNIST':
