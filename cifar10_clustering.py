@@ -123,7 +123,7 @@ def test(args, model, device, test_loader):
             _, pred = output.max(1)
             targets = np.append(targets, label.cpu().numpy())
             preds = np.append(preds, pred.cpu().numpy())
-
+    print(targets.astype(int))
     acc = cluster_acc(targets.astype(int), preds.astype(int))
     print('Test acc {:.4f}'.format(acc))
     args.logger['test_acc'].append(acc)
@@ -193,12 +193,13 @@ def main():
         model_class = utils_net.VGG4MNIST
         
     elif args.dataset == 'COIL100':
-        trainset = datasets.COIL100_ALL(train=True,
-                                        transform=datasets.TransformThrice(datasets.dict_transform['coil100_train']))
-        testset = datasets.COIL100_ALL(root=os.getcwd(), train=False,
-                                       transform=datasets.dict_transform['coil100_test'])
+        dataset = datasets.COIL100_ALL(root='./data', download=True,
+                                   transform=datasets.TransformThrice(dict_transform['coil100_train']))
+        trainset = dataset
+        testset = dataset
         num_classes = 100
         rotnet_ckpt = 'RotNet_coil100.pt'  # ✅ external dataset, reuse init
+        
 
     # ✅ Moved DataLoader creation below
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=256, shuffle=True, num_workers=2, drop_last=True)
