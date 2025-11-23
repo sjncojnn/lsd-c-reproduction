@@ -193,7 +193,7 @@ def main():
         model_class = utils_net.VGG4MNIST
         
     elif args.dataset == 'COIL100':
-        dataset = datasets.COIL100_ALL(root='./data', download=True,
+        dataset = datasets.COIL100_ALL(root='./data',
                                    transform=datasets.TransformThrice(datasets.dict_transform['coil100_train']))
         trainset = dataset
         testset = dataset
